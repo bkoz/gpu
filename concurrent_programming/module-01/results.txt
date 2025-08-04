@@ -1,4 +1,0 @@
-rm -f assignment.exe
-g++ -o assignment.exe -I./ *.cpp
-./assignment.exe bkozdemba@gmail.com
-Hello bkozdemba@gmail.com!
