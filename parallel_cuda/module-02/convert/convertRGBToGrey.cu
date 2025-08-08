@@ -21,7 +21,7 @@ __global__ void convert(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray)
         threadIdx.z * blockDim.y * blockDim.x + 
         threadIdx.y * blockDim.x + threadIdx.x;
 
-    if (i < 1024 * 1000)
+    if (i < 1333000)
         d_gray[i] = (0.299 * d_r[i]) + (0.587 * d_g[i]) + (0.114 * d_b[i]);
 
     // Image size is 1000 x 1333 pixels
@@ -136,6 +136,7 @@ __host__ void executeKernel(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, i
     //Launch the convert CUDA Kernel
     int blockZSize = 4; // Could consider making the block/grid and memory layout 3d mapped but for now just breaking up computation
     int gridCols = min(columns/(threadsPerBlock*4),1);
+    
     dim3 grid(rows, gridCols, 1);
     dim3 block(1, threadsPerBlock, blockZSize);
 
@@ -221,9 +222,9 @@ __host__ void cleanUpDevice()
 __host__ std::tuple<std::string, std::string, std::string, int> parseCommandLineArguments(int argc, char *argv[])
 {
     cout << "Parsing CLI arguments\n";
-    int threadsPerBlock = 256;
-    std::string inputImage = "sloth.png";
-    std::string outputImage = "grey-sloth.png";
+    int threadsPerBlock = 64;
+    std::string inputImage = "choco-lab.jpg";
+    std::string outputImage = "grey.jpg";
     std::string currentPartId = "test";
 
     for (int i = 1; i < argc; i++)

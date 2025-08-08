@@ -1,7 +1,7 @@
 # IDIR=./
 CXX = nvcc
 
-CXXFLAGS += $(shell pkg-config --cflags --libs opencv4) -g -G
+CXXFLAGS += $(shell pkg-config --cflags --libs opencv4) 
 LDFLAGS += $(shell pkg-config --libs --static opencv)
 
 all: clean build
