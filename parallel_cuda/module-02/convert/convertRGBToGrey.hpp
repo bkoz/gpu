@@ -21,5 +21,5 @@ __host__ void deallocateMemory(uchar *d_r, uchar *d_g, uchar *d_b, int *d_image_
 __host__ void cleanUpDevice();
 __host__ void copyFromHostToDevice(uchar *h_r, uchar *d_r, uchar *h_g, uchar *d_g, uchar *h_b, uchar *d_b, int rows, int cols);
 __host__ void executeKernel(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, int rows, int columns, int threadsPerBlock);
-__global__ void convert(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray);
+__global__ void convert(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, int width, int height);
 __host__ float compareGrayImages(uchar *gray, uchar *test_gray, int rows, int columns);

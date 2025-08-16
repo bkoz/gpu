@@ -1,12 +1,7 @@
 /*
- * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
+ * CUDA program to convert RGB image to grayscale.
  *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
+ * There is a bug in this program when processing non-square images.
  */
 #include "convertRGBToGrey.hpp"
 
@@ -14,19 +9,22 @@
  * CUDA Kernel Device code
  *
  */
-__global__ void convert(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray)
+__global__ void convert(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, int width, int height)
 {
-    //To convert from RGB to grayscale, use the average of the values in d_r, d_g, d_b and place in d_gray
-    int i = blockIdx.x * blockDim.x * blockDim.y * blockDim.z + 
-        threadIdx.z * blockDim.y * blockDim.x + 
-        threadIdx.y * blockDim.x + threadIdx.x;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    
+    if (x < width && y < height) {
+        int index = (y * width + x);
+        unsigned char r = d_r[index];
+        unsigned char g = d_g[index];
+        unsigned char b = d_b[index];
 
-    if (i < 1333000)
-        d_gray[i] = (0.299 * d_r[i]) + (0.587 * d_g[i]) + (0.114 * d_b[i]);
+        // Standard grayscale conversion formula
+        d_gray[index] = static_cast<unsigned char>(0.299f * r + 0.587f * g + 0.114f * b);
 
-    // Image size is 1000 x 1333 pixels
-    // blockDims = 1 x 256 x 4
-    // gridDims = 1000 x 1 x 1
+        // printf("x = %d, y = %d, index = %d = %d\n", x, y, index, d_gray[index]);
+    }
 }
 
 __host__ float compareGrayImages(uchar *gray, uchar *test_gray, int rows, int columns)
@@ -133,17 +131,18 @@ __host__ void copyFromHostToDevice(uchar *h_r, uchar *d_r, uchar *h_g, uchar *d_
 __host__ void executeKernel(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, int rows, int columns, int threadsPerBlock)
 {
     cout << "Executing kernel\n";
-    //Launch the convert CUDA Kernel
-    int blockZSize = 4; // Could consider making the block/grid and memory layout 3d mapped but for now just breaking up computation
-    int gridCols = min(columns/(threadsPerBlock*4),1);
+
+    // Calculate grid and block dimensions
+    dim3 block(threadsPerBlock, threadsPerBlock, 1);
+    dim3 grid(ceil((float) columns / block.x), ceil((float) rows / block.y), 1);
+
+    cout << "threadsPerBlock = " << threadsPerBlock << " x " << threadsPerBlock << endl;
+    cout << "grid = " << grid.x << " " << grid.y << ", " << "block = " << block.x << " " << block.y << endl;
+    cout << "total pixels = " << rows * columns << ", total threads = " << grid.x * grid.y * block.x * block.y << endl;
     
-    dim3 grid(rows, gridCols, 1);
-    dim3 block(1, threadsPerBlock, blockZSize);
-
-    cout << "grid = " << rows << ", " << gridCols << ", " <<  1 << endl;
-    cout << "block = " << 1 << ", " << threadsPerBlock << ", " << blockZSize << endl;
-
-    convert<<<grid, block>>>(d_r, d_g, d_b, d_gray);
+    // Launch the kernel
+    convert<<<grid, block>>>(d_r, d_g, d_b, d_gray, columns, rows);
+    
     cudaError_t err = cudaGetLastError();
 
     if (err != cudaSuccess)
@@ -222,7 +221,7 @@ __host__ void cleanUpDevice()
 __host__ std::tuple<std::string, std::string, std::string, int> parseCommandLineArguments(int argc, char *argv[])
 {
     cout << "Parsing CLI arguments\n";
-    int threadsPerBlock = 64;
+    int threadsPerBlock = 32;
     std::string inputImage = "choco-lab.jpg";
     std::string outputImage = "grey.jpg";
     std::string currentPartId = "test";
@@ -249,7 +248,7 @@ __host__ std::tuple<std::string, std::string, std::string, int> parseCommandLine
             currentPartId = value;
         }
     }
-    cout << "inputImage: " << inputImage << " outputImage: " << outputImage << " currentPartId: " << currentPartId << " threadsPerBlock: " << threadsPerBlock << "\n";
+    cout << "inputImage: " << inputImage << " outputImage: " << outputImage << " currentPartId: " << currentPartId << " threadsPerBlock dimension: " << threadsPerBlock << "\n";
     return {inputImage, outputImage, currentPartId, threadsPerBlock};
 }
 
@@ -262,12 +261,13 @@ __host__ std::tuple<int, int, uchar *, uchar *, uchar *> readImageFromFile(std::
     const int columns = img.cols;
     const int channels = img.channels();
 
-    cout << "Rows: " << rows << " Columns: " << columns << "\n";
+    cout << "Rows: " << rows << " Columns: " << columns << " Channels: " << channels << "\n";
 
     uchar *h_r = (uchar *)malloc(sizeof(uchar) * rows * columns);
     uchar *h_g = (uchar *)malloc(sizeof(uchar) * rows * columns);
     uchar *h_b = (uchar *)malloc(sizeof(uchar) * rows * columns);
-    
+    cout << "malloc passed" << endl;
+
     for(int r = 0; r < rows; ++r)
     {
         for(int c = 0; c < columns; ++c)
@@ -281,6 +281,7 @@ __host__ std::tuple<int, int, uchar *, uchar *, uchar *> readImageFromFile(std::
             h_b[r*rows+c] = blue;
         }
     }
+    cout << "Finished reading image into RGB arrays\n";
 
     return {rows, columns, h_r, h_g, h_b};
 }
@@ -315,6 +316,8 @@ int main(int argc, char *argv[])
     try 
     {
         auto[rows, columns, h_r, h_g, h_b] = readImageFromFile(inputImage);
+        cout << "Finshed reading image file." << endl;
+
         uchar *gray = (uchar *)malloc(sizeof(uchar) * rows * columns);
         std::tuple<uchar *, uchar *, uchar *, uchar *> memoryTuple = allocateDeviceMemory(rows, columns);
         uchar *d_r = get<0>(memoryTuple);
