@@ -7,19 +7,22 @@
 # nvcc does not support the -fopenmp flag
 #
 
-CXX = nvcc
-
+# Set paths and flags	
+CUDA_PATH   := /usr/local/cuda
+NVCC        := $(CUDA_PATH)/bin/nvcc
 CXXFLAGS += -I/usr/include/ImageMagick-6 -DMAGICKCORE_HDRI_ENABLE=0 -DMAGICKCORE_QUANTUM_DEPTH=16 -Wno-deprecated-gpu-targets 
 LDFLAGS += `Magick++-config --ldflags --libs`
 
-all: clean build
+# CUDA sources
+CUDA_SRCS = $(wildcard *.cu)
+CUDA_BINS = $(CUDA_SRCS:.cu=)
 
-build: 
-	$(CXX) 00-readimage.cu --std c++17 -o 00-readimage -Wno-deprecated-gpu-targets $(CXXFLAGS) -I/usr/local/cuda/include -lcuda $(LDFLAGS)
+all: $(CUDA_BINS)
 
-run:
-	./00-readimage $(ARGS)
+%: %.cu
+	$(NVCC) $(CXXFLAGS)$(LDFLAGS) $< -o $@
 
 clean:
-	rm -f 00-readimage
-	
+	rm -f $(CUDA_BINS)
+
+.PHONY: all clean
