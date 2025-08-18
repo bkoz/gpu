@@ -16,6 +16,7 @@ __global__ void convert(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, int w
     
     if (x < width && y < height) {
         int index = (y * width + x);
+        index = (x * height + y);
         unsigned char r = d_r[index];
         unsigned char g = d_g[index];
         unsigned char b = d_b[index];
@@ -281,6 +282,7 @@ __host__ std::tuple<int, int, uchar *, uchar *, uchar *> readImageFromFile(std::
             h_b[r*rows+c] = blue;
         }
     }
+
     cout << "Finished reading image into RGB arrays\n";
 
     return {rows, columns, h_r, h_g, h_b};
