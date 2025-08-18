@@ -23,21 +23,23 @@ int main(int argc, char **argv) {
         
         Pixels view(image);
 
-	// malloc image memory
-    	unsigned char ** img = new unsigned char*[image.rows()];
-	for(int i = 0; i < image.rows(); ++i) {
-    		img[i] = new unsigned char[image.columns()];
-	}
+        // malloc image memory
+    	unsigned char ** red = new unsigned char*[image.rows()];
+        unsigned char ** green = new unsigned char*[image.rows()];
+    	unsigned char ** blue = new unsigned char*[image.rows()];
 
-    // Quantum *pixels = view.get(0, 0, image.columns(), image.rows());
+        for(int i = 0; i < image.rows(); ++i) {
+                red[i] = new unsigned char[image.columns()];
+                green[i] = new unsigned char[image.columns()];
+                blue[i] = new unsigned char[image.columns()];
+        }
 
-	Color pixel_sample; 
-	pixel_sample = image.pixelColor(500,500); 
-	cout << "pixel_sample = " << (float) pixel_sample.redQuantum() / QuantumRange << 
-    ", " << (float) pixel_sample.greenQuantum() / QuantumRange << ", " << (float) pixel_sample.blueQuantum() / QuantumRange << endl;
+        // Quantum *pixels = view.get(0, 0, image.columns(), image.rows());
 
-
-	// int** a = new int*[rowCount];
+        Color pixel_sample; 
+        pixel_sample = image.pixelColor(500,500); 
+        cout << "pixel_sample = " << (float) pixel_sample.redQuantum() / QuantumRange << 
+        ", " << (float) pixel_sample.greenQuantum() / QuantumRange << ", " << (float) pixel_sample.blueQuantum() / QuantumRange << endl;
 
         // Or write the image to a new file (optional):
         image.write("images/output.png");
