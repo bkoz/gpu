@@ -10,7 +10,7 @@
 # Set paths and flags	
 CUDA_PATH   := /usr/local/cuda
 NVCC        := $(CUDA_PATH)/bin/nvcc
-CXXFLAGS += -I/usr/include/ImageMagick-6 -DMAGICKCORE_HDRI_ENABLE=0 -DMAGICKCORE_QUANTUM_DEPTH=16 -Wno-deprecated-gpu-targets 
+CXXFLAGS += --std c++17 -I/usr/include/ImageMagick-6 -DMAGICKCORE_HDRI_ENABLE=0 -DMAGICKCORE_QUANTUM_DEPTH=16 -Wno-deprecated-gpu-targets 
 LDFLAGS += `Magick++-config --ldflags --libs`
 
 # CUDA sources

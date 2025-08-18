@@ -3,13 +3,18 @@
  *
  * There is a bug in this program when processing non-square images.
  */
-#include "convertRGBToGrey.hpp"
+#include "rgb2gray.hpp"
+#include <Magick++.h> // Include the Magick++ header
+#include <iostream>   // For input/output operations
+
+using namespace std;
+using namespace Magick;
 
 /*
  * CUDA Kernel Device code
  *
  */
-__global__ void convert(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, int width, int height)
+__global__ void convert(unsigned char *d_r, unsigned char *d_g, unsigned char *d_b, unsigned char *d_gray, int width, int height)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -28,7 +33,7 @@ __global__ void convert(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, int w
     }
 }
 
-__host__ float compareGrayImages(uchar *gray, uchar *test_gray, int rows, int columns)
+__host__ float compareGrayImages(unsigned char *gray, unsigned char *test_gray, int rows, int columns)
 {
     cout << "Comparing actual and test grayscale pixel arrays\n";
     int numImagePixels = rows * columns;
@@ -38,8 +43,8 @@ __host__ float compareGrayImages(uchar *gray, uchar *test_gray, int rows, int co
     {
         for(int c = 0; c < columns; ++c)
         {
-            uchar image0Pixel = gray[r*rows+c];
-            uchar image1Pixel = test_gray[r*rows+c];
+            unsigned char image0Pixel = gray[r*rows+c];
+            unsigned char image1Pixel = test_gray[r*rows+c];
             imagePixelDifference += abs(image0Pixel - image1Pixel);
         }
     }
@@ -50,14 +55,14 @@ __host__ float compareGrayImages(uchar *gray, uchar *test_gray, int rows, int co
     return scaledMeanDifferencePercentage;
 }
 
-__host__ std::tuple<uchar *, uchar *, uchar *, uchar *> allocateDeviceMemory(int rows, int columns)
+__host__ std::tuple<unsigned char *, unsigned char *, unsigned char *, unsigned char *> allocateDeviceMemory(int rows, int columns)
 {
     cout << "Allocating GPU device memory\n";
     int num_image_pixels = rows * columns;
-    size_t size = num_image_pixels * sizeof(uchar);
+    size_t size = num_image_pixels * sizeof(unsigned char);
 
     // Allocate the device input vector d_r
-    uchar *d_r = NULL;
+    unsigned char *d_r = NULL;
     cudaError_t err = cudaMalloc(&d_r, size);
     if (err != cudaSuccess)
     {
@@ -66,7 +71,7 @@ __host__ std::tuple<uchar *, uchar *, uchar *, uchar *> allocateDeviceMemory(int
     }
 
     // Allocate the device input vector d_g
-    uchar *d_g = NULL;
+    unsigned char *d_g = NULL;
     err = cudaMalloc(&d_g, size);
     if (err != cudaSuccess)
     {
@@ -75,7 +80,7 @@ __host__ std::tuple<uchar *, uchar *, uchar *, uchar *> allocateDeviceMemory(int
     }
 
     // Allocate the device input vector d_b
-    uchar *d_b = NULL;
+    unsigned char *d_b = NULL;
     err = cudaMalloc(&d_b, size);
     if (err != cudaSuccess)
     {
@@ -84,7 +89,7 @@ __host__ std::tuple<uchar *, uchar *, uchar *, uchar *> allocateDeviceMemory(int
     }
 
     // Allocate the device input vector d_gray
-    uchar *d_gray = NULL;
+    unsigned char *d_gray = NULL;
     err = cudaMalloc(&d_gray, size);
     if (err != cudaSuccess)
     {
@@ -100,11 +105,11 @@ __host__ std::tuple<uchar *, uchar *, uchar *, uchar *> allocateDeviceMemory(int
 }
 
 
-__host__ void copyFromHostToDevice(uchar *h_r, uchar *d_r, uchar *h_g, uchar *d_g, uchar *h_b, uchar *d_b, int rows, int columns)
+__host__ void copyFromHostToDevice(unsigned char *h_r, unsigned char *d_r, unsigned char *h_g, unsigned char *d_g, unsigned char *h_b, unsigned char *d_b, int rows, int columns)
 {
     cout << "Copying from Host to Device\n";
     int num_image_pixels = rows * columns;
-    size_t size = num_image_pixels * sizeof(uchar);
+    size_t size = num_image_pixels * sizeof(unsigned char);
 
     cudaError_t err;
     err = cudaMemcpy(d_r, h_r, size, cudaMemcpyHostToDevice);
@@ -129,7 +134,7 @@ __host__ void copyFromHostToDevice(uchar *h_r, uchar *d_r, uchar *h_g, uchar *d_
     }
 }
 
-__host__ void executeKernel(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, int rows, int columns, int threadsPerBlock)
+__host__ void executeKernel(unsigned char *d_r, unsigned char *d_g, unsigned char *d_b, unsigned char *d_gray, int rows, int columns, int threadsPerBlock)
 {
     cout << "Executing kernel\n";
 
@@ -153,11 +158,11 @@ __host__ void executeKernel(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray, i
     }
 }
 
-__host__ void copyFromDeviceToHost(uchar *d_gray, uchar *gray, int rows, int columns)
+__host__ void copyFromDeviceToHost(unsigned char *d_gray, unsigned char *gray, int rows, int columns)
 {
     cout << "Copying from Device to Host\n";
     // Copy the device result int array in device memory to the host result int array in host memory.
-    size_t size = rows * columns * sizeof(uchar);
+    size_t size = rows * columns * sizeof(unsigned char);
 
     cudaError_t err = cudaMemcpy(gray, d_gray, size, cudaMemcpyDeviceToHost);
 
@@ -169,7 +174,7 @@ __host__ void copyFromDeviceToHost(uchar *d_gray, uchar *gray, int rows, int col
 }
 
 // Free device global memory
-__host__ void deallocateMemory(uchar *d_r, uchar *d_g, uchar *d_b, uchar *d_gray)
+__host__ void deallocateMemory(unsigned char *d_r, unsigned char *d_g, unsigned char *d_b, unsigned char *d_gray)
 {
     cout << "Deallocating GPU device memory\n";
     cudaError_t err = cudaFree(d_r);
@@ -253,33 +258,32 @@ __host__ std::tuple<std::string, std::string, std::string, int> parseCommandLine
     return {inputImage, outputImage, currentPartId, threadsPerBlock};
 }
 
-__host__ std::tuple<int, int, uchar *, uchar *, uchar *> readImageFromFile(std::string inputFile)
+__host__ std::tuple<int, int, unsigned char *, unsigned char *, unsigned char *> readImageFromFile(std::string inputFile)
 {
     cout << "Reading Image From File\n";
-    Mat img = imread(inputFile, IMREAD_COLOR);
-    
-    const int rows = img.rows;
-    const int columns = img.cols;
-    const int channels = img.channels();
+    // Mat img = imread(inputFile, IMREAD_COLOR);
+    Image img;
+    img.read(inputFile);
+
+    const int rows = img.rows();
+    const int columns = img.columns();
+    const int channels = img.depth();
 
     cout << "Rows: " << rows << " Columns: " << columns << " Channels: " << channels << "\n";
 
-    uchar *h_r = (uchar *)malloc(sizeof(uchar) * rows * columns);
-    uchar *h_g = (uchar *)malloc(sizeof(uchar) * rows * columns);
-    uchar *h_b = (uchar *)malloc(sizeof(uchar) * rows * columns);
+    unsigned char *h_r = (unsigned char *)malloc(sizeof(unsigned char) * rows * columns);
+    unsigned char *h_g = (unsigned char *)malloc(sizeof(unsigned char) * rows * columns);
+    unsigned char *h_b = (unsigned char *)malloc(sizeof(unsigned char) * rows * columns);
     cout << "malloc passed" << endl;
     
     for(int r = 0; r < rows; ++r)
     {
         for(int c = 0; c < columns; ++c)
         {
-            Vec3b intensity = img.at<Vec3b>(r, c);
-            uchar blue = intensity.val[0];
-            uchar green = intensity.val[1];
-            uchar red = intensity.val[2];
-            h_r[r*rows+c] = red;
-            h_g[r*rows+c] = green;
-            h_b[r*rows+c] = blue;
+            Color pixel = img.pixelColor(c, r);
+            h_r[r*rows+c] = (int) 255 * (float) pixel.redQuantum() / QuantumRange;
+            h_g[r*rows+c] = (int) 255 * (float) pixel.greenQuantum() / QuantumRange;
+            h_b[r*rows+c] = (int) 255 * (float) pixel.blueQuantum() / QuantumRange;
         }
     }
 
@@ -288,20 +292,20 @@ __host__ std::tuple<int, int, uchar *, uchar *, uchar *> readImageFromFile(std::
     return {rows, columns, h_r, h_g, h_b};
 }
 
-__host__ uchar *cpuConvertToGray(std::string inputFile)
+__host__ unsigned char *cpuConvertToGray(std::string inputFile)
 {
     cout << "CPU converting image file to grayscale\n";
-    Mat grayImage = imread(inputFile, IMREAD_GRAYSCALE);
-    const int rows = grayImage.rows;
-    const int columns = grayImage.cols;
+    // Mat grayImage = imread(inputFile, IMREAD_GRAYSCALE);
+    const int rows = 256;
+    const int columns = 256;
 
-    uchar *gray = (uchar *)malloc(sizeof(uchar) * rows * columns);
+    unsigned char *gray = (unsigned char *)malloc(sizeof(unsigned char) * rows * columns);
 
     for(int r = 0; r < rows; ++r)
     {
         for(int c = 0; c < columns; ++c)
         {
-            gray[r*rows+c] = min(grayImage.at<uchar>(r, c), 254);
+//            gray[r*rows+c] = min(grayImage.at<unsigned char>(r, c), 254);
         }
     }
 
@@ -320,12 +324,12 @@ int main(int argc, char *argv[])
         auto[rows, columns, h_r, h_g, h_b] = readImageFromFile(inputImage);
         cout << "Finshed reading image file." << endl;
 
-        uchar *gray = (uchar *)malloc(sizeof(uchar) * rows * columns);
-        std::tuple<uchar *, uchar *, uchar *, uchar *> memoryTuple = allocateDeviceMemory(rows, columns);
-        uchar *d_r = get<0>(memoryTuple);
-        uchar *d_g = get<1>(memoryTuple);
-        uchar *d_b = get<2>(memoryTuple);
-        uchar *d_gray = get<3>(memoryTuple);
+        unsigned char *gray = (unsigned char *)malloc(sizeof(unsigned char) * rows * columns);
+        std::tuple<unsigned char *, unsigned char *, unsigned char *, unsigned char *> memoryTuple = allocateDeviceMemory(rows, columns);
+        unsigned char *d_r = get<0>(memoryTuple);
+        unsigned char *d_g = get<1>(memoryTuple);
+        unsigned char *d_b = get<2>(memoryTuple);
+        unsigned char *d_gray = get<3>(memoryTuple);
 
         copyFromHostToDevice(h_r, d_r, h_g, d_g, h_b, d_b, rows, columns);
 
@@ -335,27 +339,40 @@ int main(int argc, char *argv[])
         deallocateMemory(d_r, d_g, d_b, d_gray);
         cleanUpDevice();
 
-        Mat grayImageMat(rows, columns, CV_8UC1);
-        vector<int> compression_params;
-        compression_params.push_back(IMWRITE_PNG_COMPRESSION);
-        compression_params.push_back(9);
+        // Mat grayImageMat(rows, columns, CV_8UC1);
+        Image image;
+        
+        // Create an Image from the gray data.
+        Blob my_blob(gray, rows * columns);
+
+        Image image_from_blob(my_blob); 
+        image_from_blob.write("gray.png");
+
+    
+
+        // Write the image to a file.
+        // mage.write(outputImage);
+
+        // vector<int> compression_params;
+        // compression_params.push_back(IMWRITE_PNG_COMPRESSION);
+        // compression_params.push_back(9);
 
         //cout << "Output gray intensities: ";
-        for(int r = 0; r < rows; ++r)
-        {
-            for(int c = 0; c < columns; ++c)
-            {
-                grayImageMat.at<uchar>(r,c) = gray[r*rows+c];
-            }
-        }
+        // for(int r = 0; r < rows; ++r)
+        // {
+        //     for(int c = 0; c < columns; ++c)
+        //     {
+        //         grayImageMat.at<unsigned char>(r,c) = gray[r*rows+c];
+        //     }
+        // }
         //cout << "\n";
 
-        imwrite(outputImage, grayImageMat, compression_params);
+        // imwrite(outputImage, grayImageMat, compression_params);
 
-        uchar *test_gray = cpuConvertToGray(inputImage);
+        // unsigned char *test_gray = cpuConvertToGray(inputImage);
         
-        float scaledMeanDifferencePercentage = compareGrayImages(gray, test_gray, rows, columns) * 100;
-        cout << "Mean difference percentage: " << scaledMeanDifferencePercentage << "\n";
+        // float scaledMeanDifferencePercentage = compareGrayImages(gray, test_gray, rows, columns) * 100;
+        // cout << "Mean difference percentage: " << scaledMeanDifferencePercentage << "\n";
     }
     catch (Exception &error_)
     {
