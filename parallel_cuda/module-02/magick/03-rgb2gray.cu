@@ -359,8 +359,8 @@ int main(int argc, char *argv[])
         image.magick("RGBA"); 
         image.read(my_blob);
 	    // Convert the image from rgba to jpeg.
-	    image.magick("JPEG"); 
-        image.write("gray.jpg");
+	    image.magick("PNG"); 
+        image.write("gray.png");
 
     
 
