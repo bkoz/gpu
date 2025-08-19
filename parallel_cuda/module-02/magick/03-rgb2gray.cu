@@ -228,7 +228,7 @@ __host__ std::tuple<std::string, std::string, std::string, int> parseCommandLine
 {
     cout << "Parsing CLI arguments\n";
     int threadsPerBlock = 32;
-    std::string inputImage = "choco-lab.jpg";
+    std::string inputImage = "images/rainbow_2048.png";
     std::string outputImage = "grey.jpg";
     std::string currentPartId = "test";
 
@@ -340,13 +340,27 @@ int main(int argc, char *argv[])
         cleanUpDevice();
 
         // Mat grayImageMat(rows, columns, CV_8UC1);
+        InitializeMagick(*argv);
         Image image;
-        
-        // Create an Image from the gray data.
-        Blob my_blob(gray, rows * columns);
+        // Each pixel is GRAY, 8 bytes (unsigned short) per pixel
+        vector<unsigned short> rawPixels(columns * rows * 4); 
 
-        Image image_from_blob(my_blob); 
-        image_from_blob.write("gray.png");
+        // Fill the buffer with some simple pixel data (e.g., a blue rectangle)
+        for (size_t i = 0; i < columns * rows; ++i) {
+            rawPixels[i * 4 + 0] = gray[i] * 257; // Red
+            rawPixels[i * 4 + 1] = gray[i] * 257; // Green
+            rawPixels[i * 4 + 2] = gray[i] * 257; // Blue
+            rawPixels[i * 4 + 3] = 65535; // Alpha (fully opaque)
+        }
+        // Create an Image from the gray data.
+        Blob my_blob(rawPixels.data(), rawPixels.size() * sizeof(unsigned short));
+        image.size(Geometry(columns, rows));
+	    // Specify the pixel format (Red, Green, Blue, Alpha)
+        image.magick("RGBA"); 
+        image.read(my_blob);
+	    // Convert the image from rgba to jpeg.
+	    image.magick("JPEG"); 
+        image.write("gray.jpg");
 
     
 
